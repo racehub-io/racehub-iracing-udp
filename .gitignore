@@ -1,0 +1,12 @@
+.venv/
+.vscode/
+
+*.pyc
+**/__pycache__/
+
+build/
+dist/
+
+test.ipynb
+.DS_Store
+```

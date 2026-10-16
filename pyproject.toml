@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "racehub-iracing-udp"
+version = "0.1.0"
+description = ""
+authors = ["Michael Sansoni"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+application = "racehub_iracing_udp.main:main"
+build = "racehub_iracing_udp.pyinstaller:install"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+protobuf = "^4.25.2"
+pyirsdk = "^1.3.3"
+
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "^6.3.0"
+ipykernel = "^6.29.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
