@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "racehub-iracing-udp"
 version = "0.1.0"
-description = ""
+description = "Free, open source iRacing UDP bridge for RaceHub."
 authors = ["Michael Sansoni"]
 readme = "README.md"
 

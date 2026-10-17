@@ -1,10 +1,12 @@
+import logging
 import socket
 import time
+
+import irsdk
+
 import racehub_iracing_udp.iracing_message_pb2 as iRacingMessage
 from racehub_iracing_udp.config import config
 from racehub_iracing_udp.constants import rad_to_deg
-import irsdk
-import logging
 
 # Configure the logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +22,7 @@ class IRacingUDPServer:
         self.ir = irsdk.IRSDK()
         self.state = self.State()
 
-        logging.info(
+        logger.info(
             f"Starting Server at {self.address}:{self.port} with frequency {self.frequency} Hz"
         )
 
@@ -37,7 +39,7 @@ class IRacingUDPServer:
             self.state.ir_connected = False
             self.state.last_car_setup_tick = -1
             self.ir.shutdown()
-            logging.info("iRacing Disconnected")
+            logger.info("iRacing Disconnected")
         elif (
             not self.state.ir_connected
             and self.ir.startup()
@@ -45,7 +47,7 @@ class IRacingUDPServer:
             and self.ir.is_connected
         ):
             self.state.ir_connected = True
-            logging.info("iRacing Connected")
+            logger.info("iRacing Connected")
 
     def get_packet(self):
         """Retrieve the telemetry data and convert it to a protobuf packet."""
@@ -56,19 +58,17 @@ class IRacingUDPServer:
             return packet
 
         di = self.ir["DriverInfo"]
-        num_cars = len(di["Drivers"])
         player_idx = self.ir["PlayerCarIdx"]
 
-        cars = [packet.Cars.add() for _ in range(num_cars)]
-        participants = [packet.Participants.add() for _ in range(num_cars)]
+        for driver in di["Drivers"]:
+            car = packet.Cars.add()
+            car_idx = driver["CarIdx"]
+            car.CarIdx = car_idx
+            car.Lap = self.ir["CarIdxLap"][car_idx]
+            car.LapDistancePct = self.ir["CarIdxLapDistPct"][car_idx]
+            car.Steer = self.ir["CarIdxSteer"][car_idx] * rad_to_deg
 
-        for i, car in enumerate(cars):
-            car.CarIdx = i
-            car.Lap = self.ir["CarIdxLap"][i]
-            car.LapDistancePct = self.ir["CarIdxLapDistPct"][i]
-            car.Steer = self.ir["CarIdxSteer"][i] * rad_to_deg
-
-            if player_idx == i:
+            if player_idx == car_idx:
                 car.Brake = self.ir["Brake"] * 100
                 car.Clutch = self.ir["Clutch"] * 100
                 car.Gear = self.ir["Gear"]
@@ -77,12 +77,12 @@ class IRacingUDPServer:
                 car.Throttle = self.ir["Throttle"] * 100
                 car.LapTime = self.ir["LapCurrentLapTime"]
 
-            participant = participants[i]
-            participant.ParticipantIdx = i
-            participant.DriverName = di["Drivers"][i]["UserName"]
-            abbreviation = di["Drivers"][i]["AbbrevName"]
-            participant.CarNumber = di["Drivers"][i]["CarNumberRaw"]
-            participant.TeamName = di["Drivers"][i]["TeamName"]
+            participant = packet.Participants.add()
+            participant.ParticipantIdx = car_idx
+            participant.DriverName = driver["UserName"]
+            abbreviation = driver["AbbrevName"]
+            participant.CarNumber = driver["CarNumberRaw"]
+            participant.TeamName = driver["TeamName"]
 
             if abbreviation:
                 participant.Abbreviation = abbreviation
@@ -96,7 +96,7 @@ class IRacingUDPServer:
         session_info.Category = wi["Category"]
         session_info.EventType = wi["EventType"]
         session_info.TrackName = wi["TrackDisplayName"]
-        session_info.TrackLength = int(wi["TrackLength"].split(" ")[0]) * 1000
+        session_info.TrackLength = round(float(wi["TrackLength"].split(" ")[0]) * 1000)
         session_info.AirDensity = self.ir["AirDensity"]
         session_info.AirPressure = self.ir["AirPressure"]
         session_info.AirTemperature = self.ir["AirTemp"]
